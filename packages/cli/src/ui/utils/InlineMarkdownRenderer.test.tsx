@@ -9,6 +9,12 @@ import { renderWithProviders } from '../../test-utils/render.js';
 import { getPlainTextLength, RenderInline } from './InlineMarkdownRenderer.js';
 import { HYPERLINK_ENV_KEYS } from './osc8.js';
 
+// eslint-disable-next-line no-control-regex
+const OSC8_TARGET_PATTERN = /\x1b]8;;([^\x07]+)\x07/g;
+
+const extractOsc8Targets = (output: string) =>
+  Array.from(output.matchAll(OSC8_TARGET_PATTERN), (match) => match[1]);
+
 describe('<RenderInline />', () => {
   const savedEnv = { ...process.env };
   const savedIsTTY = process.stdout.isTTY;
@@ -231,6 +237,49 @@ math then literal: $x^2\$$`;
       expect(out).toContain(`\x1b]8;;${url}\x07`);
       expect(out).toContain(url);
       expect(out).toContain('\x1b]8;;\x07');
+    });
+
+    it.each(['、', '。', '（', '）', '，', '；', '：', '！', '？'])(
+      'stops a bare URL before the CJK boundary %s',
+      (boundary) => {
+        enableHyperlinks();
+        const url = 'https://github.com/QwenLM/qwen-code/pull/8742';
+        const suffix =
+          boundary === '（' ? '（2 commits，等 CI）' : `${boundary}后文`;
+        const { lastFrame } = renderWithProviders(
+          <RenderInline text={`PR：${url}${suffix}`} />,
+        );
+
+        const out = lastFrame() ?? '';
+        const targets = extractOsc8Targets(out);
+        expect(targets).toEqual([url]);
+        expect(out).toContain(suffix);
+      },
+    );
+
+    it.each([
+      'https://example.com/路径/中文?查询=值#章节',
+      'https://example.com/%EF%BC%88path%EF%BC%89',
+    ])('keeps a valid bare URL target intact: %s', (url) => {
+      enableHyperlinks();
+      const { lastFrame } = renderWithProviders(
+        <RenderInline text={`visit ${url}`} />,
+      );
+
+      const out = lastFrame() ?? '';
+      const targets = extractOsc8Targets(out);
+      expect(targets).toEqual([url]);
+    });
+
+    it('keeps CJK punctuation inside an explicit markdown link target', () => {
+      enableHyperlinks();
+      const url = 'https://example.com/路径（版本）';
+      const { lastFrame } = renderWithProviders(
+        <RenderInline text={`see [docs](${url})`} />,
+      );
+
+      const out = lastFrame() ?? '';
+      expect(out).toContain(`\x1b]8;;${url}\x07`);
     });
 
     it('trims trailing sentence punctuation from the OSC 8 target only', () => {

@@ -11,6 +11,12 @@ import { renderWithProviders } from '../../test-utils/render.js';
 import { TableRenderer, type ColumnAlign } from './TableRenderer.js';
 import { HYPERLINK_ENV_KEYS } from './osc8.js';
 
+// eslint-disable-next-line no-control-regex
+const OSC8_TARGET_PATTERN = /\x1b]8;;([^\x07]+)\x07/g;
+
+const extractOsc8Targets = (output: string) =>
+  Array.from(output.matchAll(OSC8_TARGET_PATTERN), (match) => match[1]);
+
 describe('<TableRenderer />', () => {
   // Force OSC 8 detection off for every test in this file so cell rendering
   // is deterministic regardless of the developer's terminal. Without this,
@@ -646,6 +652,28 @@ describe('<TableRenderer />', () => {
       expect(output).not.toContain(`(${url})`);
       // Column width math must strip the OSC 8 envelope (otherwise alignment
       // breaks); the rendered table should still have uniform line widths.
+      expectAllLinesToHaveSameVisibleWidth(output);
+    });
+
+    it.each(['（2 commits，等 CI）', '。后文'])(
+      'stops a bare URL before CJK prose in a cell: %s',
+      (suffix) => {
+        enableHyperlinks();
+        const url = 'https://github.com/QwenLM/qwen-code/pull/8742';
+        const output = renderTable(['Link'], [[`${url}${suffix}`]], 100);
+        const targets = extractOsc8Targets(output);
+        expect(targets).toEqual([url]);
+        expect(stripAnsi(output)).toContain(`${url}${suffix}`);
+        expectAllLinesToHaveSameVisibleWidth(output);
+      },
+    );
+
+    it('keeps a valid bare CJK IRI target intact in a cell', () => {
+      enableHyperlinks();
+      const url = 'https://example.com/路径/中文?查询=值#章节';
+      const output = renderTable(['Link'], [[url]], 80);
+      const targets = extractOsc8Targets(output);
+      expect(targets).toEqual([url]);
       expectAllLinesToHaveSameVisibleWidth(output);
     });
 

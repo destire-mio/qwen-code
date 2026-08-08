@@ -162,7 +162,14 @@ export function trimTrailingUrlPunctuation(url: string): string {
   return url.slice(0, end);
 }
 
-// ── Markdown link regex shared between the React and ANSI renderers ──────
+// ── Link regexes shared between the React and ANSI renderers ─────────────
+
+/**
+ * Treat common CJK sentence punctuation as prose boundaries for bare URLs.
+ * Ordinary Unicode characters remain valid so IRI paths are not truncated;
+ * literal punctuation in a real URL path can still be percent-encoded.
+ */
+export const BARE_URL_PATTERN = String.raw`https?:\/\/[^\s、。（），；：！？]+`;
 
 /**
  * Inline link pattern allowing one level of balanced parens in the URL
