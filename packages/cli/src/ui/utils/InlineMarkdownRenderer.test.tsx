@@ -239,28 +239,63 @@ math then literal: $x^2\$$`;
       expect(out).toContain('\x1b]8;;\x07');
     });
 
-    it.each(['、', '。', '（', '）', '，', '；', '：', '！', '？'])(
-      'stops a bare URL before the CJK boundary %s',
-      (boundary) => {
-        enableHyperlinks();
-        const url = 'https://github.com/QwenLM/qwen-code/pull/8742';
-        const suffix =
-          boundary === '（' ? '（2 commits，等 CI）' : `${boundary}后文`;
-        const { lastFrame } = renderWithProviders(
-          <RenderInline text={`PR：${url}${suffix}`} />,
-        );
+    it.each([
+      '、',
+      '。',
+      '（',
+      '）',
+      '，',
+      '；',
+      '：',
+      '！',
+      '？',
+      '︐',
+      '︑',
+      '︒',
+      '︓',
+      '︔',
+      '︕',
+      '︖',
+      '︵',
+      '︶',
+      '﹐',
+      '﹑',
+      '﹒',
+      '﹔',
+      '﹕',
+      '﹖',
+      '﹗',
+      '﹙',
+      '﹚',
+    ])('stops a bare URL before the CJK boundary %s', (boundary) => {
+      enableHyperlinks();
+      const url = 'https://github.com/QwenLM/qwen-code/pull/8742';
+      const suffix =
+        boundary === '（' ? '（2 commits，等 CI）' : `${boundary}后文`;
+      const { lastFrame } = renderWithProviders(
+        <RenderInline text={`PR：${url}${suffix}`} />,
+      );
 
-        const out = lastFrame() ?? '';
-        const targets = extractOsc8Targets(out);
-        expect(targets).toEqual([url]);
-        expect(out).toContain(suffix);
-      },
-    );
+      const out = lastFrame() ?? '';
+      const targets = extractOsc8Targets(out);
+      expect(targets).toEqual([url]);
+      expect(out).toContain(suffix);
+      expect(out.indexOf('\x1b]8;;\x07')).toBeLessThan(out.indexOf(suffix));
+    });
 
     it.each([
       'https://example.com/路径/中文?查询=值#章节',
+      'https://ja.wikipedia.org/wiki/人々',
+      'https://example.com/二〇二六年報',
+      'https://example.com/report–2024',
+      'https://www.example.com/news/it’s-official',
+      'https://example.com/波〜形',
+      'https://example.com/波～形',
+      'https://example.com/report﹘2024',
+      'https://example.com/line︴mark',
+      'https://example.com/name﹠value',
       'https://example.com/%EF%BC%88path%EF%BC%89',
-    ])('keeps a valid bare URL target intact: %s', (url) => {
+    ])('keeps an allowed bare IRI target intact: %s', (url) => {
       enableHyperlinks();
       const { lastFrame } = renderWithProviders(
         <RenderInline text={`visit ${url}`} />,

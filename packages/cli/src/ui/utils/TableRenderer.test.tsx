@@ -655,7 +655,7 @@ describe('<TableRenderer />', () => {
       expectAllLinesToHaveSameVisibleWidth(output);
     });
 
-    it.each(['（2 commits，等 CI）', '。后文'])(
+    it.each(['（2 commits，等 CI）', '。后文', '﹐後文', '︐後文'])(
       'stops a bare URL before CJK prose in a cell: %s',
       (suffix) => {
         enableHyperlinks();
@@ -664,6 +664,9 @@ describe('<TableRenderer />', () => {
         const targets = extractOsc8Targets(output);
         expect(targets).toEqual([url]);
         expect(stripAnsi(output)).toContain(`${url}${suffix}`);
+        expect(output.indexOf('\x1b]8;;\x07')).toBeLessThan(
+          output.indexOf(suffix),
+        );
         expectAllLinesToHaveSameVisibleWidth(output);
       },
     );
